@@ -1,4 +1,4 @@
-import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import { createHTTPHandler } from "@trpc/server/adapters/node-http";
 import { initTRPC, TRPCError } from "@trpc/server";
 import { z } from "zod";
 import superjson from "superjson";
@@ -797,22 +797,33 @@ const appRouter = router({
 export type AppRouter = typeof appRouter;
 
 // ============ Vercel Handler ============
-export default async function handler(req: Request): Promise<Response> {
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "localhost";
-  const proto = req.headers.get("x-forwarded-proto") ?? "https";
-  const normalizedReq = req.url.startsWith("http")
-    ? req
-    : new Request(new URL(req.url, `${proto}://${host}`), req);
+const httpHandler = createHTTPHandler({
+  router: appRouter,
+  createContext: ({ req }) => {
+    const host = req.headers.host ?? "localhost";
+    const protoHeader = req.headers["x-forwarded-proto"];
+    const proto = Array.isArray(protoHeader) ? protoHeader[0] : protoHeader ?? "https";
+    const url = req.url?.startsWith("http") ? req.url : `${proto}://${host}${req.url ?? "/api/trpc"}`;
 
-  return fetchRequestHandler({
-    endpoint: "/api/trpc",
-    req: normalizedReq,
-    router: appRouter,
-    createContext: () => createContext(normalizedReq),
-    onError: ({ error, path }) => {
-      if (error.code !== "UNAUTHORIZED" && error.code !== "BAD_REQUEST") {
-        console.error(`tRPC error on ${path}:`, error);
-      }
-    },
-  });
+    const headers = new Headers();
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (Array.isArray(value)) headers.set(key, value.join(", "));
+      else if (typeof value === "string") headers.set(key, value);
+    }
+
+    const request = new Request(url, {
+      method: req.method ?? "GET",
+      headers,
+    });
+    return createContext(request);
+  },
+  onError: ({ error, path }) => {
+    if (error.code !== "UNAUTHORIZED" && error.code !== "BAD_REQUEST") {
+      console.error(`tRPC error on ${path}:`, error);
+    }
+  },
+});
+
+export default function handler(req: any, res: any) {
+  return httpHandler(req, res);
 }
