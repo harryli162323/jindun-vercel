@@ -1,11 +1,14 @@
-import { createHTTPHandler } from "@trpc/server/adapters/node-http";
+import { nodeHTTPRequestHandler } from "@trpc/server/adapters/node-http";
 import { initTRPC, TRPCError } from "@trpc/server";
 import { z } from "zod";
 import superjson from "superjson";
 import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2";
 import { eq, and, or, like, desc, sql, gte, lte } from "drizzle-orm";
 import { decimal, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 import * as jose from "jose";
+import fs from "node:fs";
+import path from "node:path";
 
 const systemAccounts = mysqlTable("system_accounts", {
   id: int("id").autoincrement().primaryKey(),
@@ -116,18 +119,67 @@ const inventory = mysqlTable("inventory", {
 
 // ============ Database ============
 let _db: ReturnType<typeof drizzle> | null = null;
+let _localEnvLoaded = false;
+const _localEnv = new Map<string, string>();
+
+function loadLocalEnvIfNeeded() {
+  if (_localEnvLoaded) return;
+  _localEnvLoaded = true;
+
+  const candidates = [
+    path.resolve(process.cwd(), ".env.local"),
+    path.resolve(process.cwd(), ".env"),
+  ];
+
+  for (const filePath of candidates) {
+    if (!fs.existsSync(filePath)) continue;
+    const content = fs.readFileSync(filePath, "utf8");
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith("#")) continue;
+      const idx = line.indexOf("=");
+      if (idx <= 0) continue;
+      const key = line.slice(0, idx).trim();
+      let value = line.slice(idx + 1).trim();
+      if (
+        (value.startsWith("\"") && value.endsWith("\"")) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1);
+      }
+      if (!(key in process.env)) {
+        _localEnv.set(key, value);
+      }
+    }
+  }
+}
+
+function readEnv(name: string): string | undefined {
+  if (process.env[name]) return process.env[name];
+  loadLocalEnvIfNeeded();
+  return _localEnv.get(name);
+}
 
 function getDb() {
   if (!_db) {
-    const url = process.env.DATABASE_URL;
+    const url = readEnv("DATABASE_URL");
     if (!url) throw new Error("DATABASE_URL is not set");
-    _db = drizzle(url);
+
+    const parsed = new URL(url);
+    const sslEnabled = parsed.searchParams.get("ssl") === "true";
+    if (sslEnabled) parsed.searchParams.delete("ssl");
+
+    const pool = mysql.createPool({
+      uri: parsed.toString(),
+      ...(sslEnabled ? { ssl: { rejectUnauthorized: true } } : {}),
+    });
+    _db = drizzle(pool);
   }
   return _db;
 }
 
 // ============ JWT ============
-const JWT_SECRET = process.env.JWT_SECRET || "jindun-fallback-secret-change-in-production";
+const JWT_SECRET = readEnv("JWT_SECRET") || "jindun-fallback-secret-change-in-production";
 
 async function signToken(username: string): Promise<string> {
   const secret = new TextEncoder().encode(JWT_SECRET);
@@ -797,9 +849,23 @@ const appRouter = router({
 export type AppRouter = typeof appRouter;
 
 // ============ Vercel Handler ============
-const httpHandler = createHTTPHandler({
-  router: appRouter,
-  createContext: ({ req }) => {
+export default function handler(req: any, res: any) {
+  const host = req.headers.host ?? "localhost";
+  const protoHeader = req.headers["x-forwarded-proto"];
+  const proto = Array.isArray(protoHeader) ? protoHeader[0] : protoHeader ?? "https";
+  const rawUrl = req.url ?? "/api/trpc";
+  const absoluteUrl = rawUrl.startsWith("http") ? rawUrl : `${proto}://${host}${rawUrl}`;
+  const parsedUrl = new URL(absoluteUrl);
+  const queryPath = parsedUrl.searchParams.get("path");
+  const pathnamePath = parsedUrl.pathname.replace(/^\/api\/trpc\/?/, "");
+  const trpcPath = (queryPath ?? pathnamePath).replace(/^\/+/, "");
+
+  return nodeHTTPRequestHandler({
+    req,
+    res,
+    router: appRouter,
+    path: trpcPath,
+    createContext: ({ req }) => {
     const host = req.headers.host ?? "localhost";
     const protoHeader = req.headers["x-forwarded-proto"];
     const proto = Array.isArray(protoHeader) ? protoHeader[0] : protoHeader ?? "https";
@@ -816,14 +882,11 @@ const httpHandler = createHTTPHandler({
       headers,
     });
     return createContext(request);
-  },
-  onError: ({ error, path }) => {
-    if (error.code !== "UNAUTHORIZED" && error.code !== "BAD_REQUEST") {
-      console.error(`tRPC error on ${path}:`, error);
-    }
-  },
-});
-
-export default function handler(req: any, res: any) {
-  return httpHandler(req, res);
+    },
+    onError: ({ error, path }) => {
+      if (error.code !== "UNAUTHORIZED" && error.code !== "BAD_REQUEST") {
+        console.error(`tRPC error on ${path}:`, error);
+      }
+    },
+  });
 }
