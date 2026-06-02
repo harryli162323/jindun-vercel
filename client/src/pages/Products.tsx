@@ -21,7 +21,7 @@ export default function Products() {
   const [form, setForm] = useState({ name: "", spec: "", unit: "", supplier: "", purchasePrice: "", remark: "" });
 
   const products = trpc.product.list.useQuery({ page, pageSize: 20, search });
-  const allProducts = trpc.product.allForExport.useQuery();
+  const allProducts = trpc.product.exportAll.useQuery();
   const utils = trpc.useUtils();
 
   const createMutation = trpc.product.create.useMutation({

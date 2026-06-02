@@ -32,7 +32,7 @@ export default function Purchase() {
     { orderId: detailOrderId!, page: detailPage, pageSize: 50 },
     { enabled: !!detailOrderId }
   );
-  const activeProducts = trpc.product.allActive.useQuery();
+  const activeProducts = trpc.product.listActive.useQuery();
   const allOrders = trpc.purchase.exportAll.useQuery();
   const allItems = trpc.purchase.exportItems.useQuery({ orderId: detailOrderId || undefined }, { enabled: !!detailOrderId });
   const utils = trpc.useUtils();

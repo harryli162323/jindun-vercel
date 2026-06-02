@@ -21,6 +21,7 @@ export default function Customers() {
   const [form, setForm] = useState({ name: "", warehouseAddress: "", contactPerson: "" });
 
   const customers = trpc.customer.list.useQuery({ page, pageSize: 20, search });
+  const allCustomers = trpc.customer.exportAll.useQuery();
   const utils = trpc.useUtils();
 
   const createMutation = trpc.customer.create.useMutation({
@@ -84,9 +85,7 @@ export default function Customers() {
             <Search className="w-4 h-4" />
           </Button>
         </div>
-        <Button onClick={() => {
-          utils.client.customer.allForExport.query().then(data => exportCustomersExcel(data)).catch(() => toast.error('导出失败'));
-        }} variant="outline" className="glass-card hover:bg-[#5DB882]/10">
+        <Button onClick={() => allCustomers.data && exportCustomersExcel(allCustomers.data)} variant="outline" className="glass-card hover:bg-[#5DB882]/10">
           <Download className="w-4 h-4 mr-2" />导出Excel
         </Button>
         <Button onClick={openCreate} className="bg-gradient-to-r from-[#5DB882] to-[#3A9B68] text-white">
