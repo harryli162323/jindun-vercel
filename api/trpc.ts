@@ -798,11 +798,17 @@ export type AppRouter = typeof appRouter;
 
 // ============ Vercel Handler ============
 export default async function handler(req: Request): Promise<Response> {
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "localhost";
+  const proto = req.headers.get("x-forwarded-proto") ?? "https";
+  const normalizedReq = req.url.startsWith("http")
+    ? req
+    : new Request(new URL(req.url, `${proto}://${host}`), req);
+
   return fetchRequestHandler({
     endpoint: "/api/trpc",
-    req,
+    req: normalizedReq,
     router: appRouter,
-    createContext: () => createContext(req),
+    createContext: () => createContext(normalizedReq),
     onError: ({ error, path }) => {
       if (error.code !== "UNAUTHORIZED" && error.code !== "BAD_REQUEST") {
         console.error(`tRPC error on ${path}:`, error);
