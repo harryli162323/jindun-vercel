@@ -13,7 +13,7 @@ import {
   salesOrders,
   salesOrderItems,
   inventory,
-} from "../drizzle/schema.ts";
+} from "./schema.ts";
 import * as jose from "jose";
 
 // ============ Database ============
