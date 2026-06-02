@@ -44,8 +44,8 @@ export default function Sales() {
   );
   const activeProducts = trpc.product.allActive.useQuery();
   const activeCustomers = trpc.customer.allActive.useQuery();
-  const allOrders = trpc.sales.allForExport.useQuery({ startDate: startDate || undefined, endDate: endDate || undefined });
-  const allItems = trpc.sales.itemsForExport.useQuery({ orderId: detailOrderId || undefined }, { enabled: !!detailOrderId });
+  const allOrders = trpc.sales.exportAll.useQuery({ startDate: startDate || undefined, endDate: endDate || undefined });
+  const allItems = trpc.sales.exportItems.useQuery({ orderId: detailOrderId || undefined }, { enabled: !!detailOrderId });
   const utils = trpc.useUtils();
 
   const createMutation = trpc.sales.create.useMutation({

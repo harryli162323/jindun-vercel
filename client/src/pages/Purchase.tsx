@@ -33,8 +33,8 @@ export default function Purchase() {
     { enabled: !!detailOrderId }
   );
   const activeProducts = trpc.product.allActive.useQuery();
-  const allOrders = trpc.purchase.allForExport.useQuery();
-  const allItems = trpc.purchase.itemsForExport.useQuery({ orderId: detailOrderId || undefined }, { enabled: !!detailOrderId });
+  const allOrders = trpc.purchase.exportAll.useQuery();
+  const allItems = trpc.purchase.exportItems.useQuery({ orderId: detailOrderId || undefined }, { enabled: !!detailOrderId });
   const utils = trpc.useUtils();
 
   const createMutation = trpc.purchase.create.useMutation({
