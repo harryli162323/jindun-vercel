@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Download, Eye, Edit, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { exportPurchaseOrdersExcel, exportPurchaseItemsExcel } from "@/lib/export";
+import { getToken } from "@/lib/trpc";
 
 interface PurchaseItem {
   productId: number; productName: string; spec: string; unit: string; supplier: string;
@@ -85,7 +86,8 @@ export default function Purchase() {
 
   const openEdit = async (orderId: number) => {
     setEditingOrderId(orderId);
-    const res = await fetch(`/api/trpc/purchase.detail?input=${encodeURIComponent(JSON.stringify({ json: { orderId, page: 1, pageSize: 999 } }))}`);
+    const token = getToken();
+    const res = await fetch(`/api/trpc/purchase.detail?input=${encodeURIComponent(JSON.stringify({ json: { orderId, page: 1, pageSize: 999 } }))}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
     const data = await res.json();
     const orderItems = data.result?.data?.json?.items || [];
     setItems(orderItems.map((item: any) => ({
@@ -219,6 +221,12 @@ export default function Purchase() {
                         <Select value={item.productId ? String(item.productId) : ""} onValueChange={v => selectProduct(index, v)}>
                           <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="选择产品" /></SelectTrigger>
                           <SelectContent>
+                            {activeProducts.isLoading && (
+                              <div className="py-2 px-3 text-xs text-muted-foreground">加载中...</div>
+                            )}
+                            {!activeProducts.isLoading && (!activeProducts.data || activeProducts.data.length === 0) && (
+                              <div className="py-2 px-3 text-xs text-muted-foreground">暂无可用产品，请先在产品管理中添加</div>
+                            )}
                             {activeProducts.data?.map((p: any) => (
                               <SelectItem key={p.id} value={String(p.id)}>{p.name} - {p.spec}</SelectItem>
                             ))}

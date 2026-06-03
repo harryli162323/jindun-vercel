@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Route, Switch, Redirect } from "wouter";
+import { Toaster } from "./components/ui/sonner";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
@@ -34,30 +35,41 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">加载中...</div>
-      </div>
+      <>
+        <Toaster position="top-right" richColors />
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="text-muted-foreground">加载中...</div>
+        </div>
+      </>
     );
   }
 
   if (!username) {
-    return <Login onLogin={handleLogin} />;
+    return (
+      <>
+        <Toaster position="top-right" richColors />
+        <Login onLogin={handleLogin} />
+      </>
+    );
   }
 
   return (
-    <AppLayout username={username} onLogout={handleLogout}>
-      <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/dashboard" component={Dashboard} />
-        <Route path="/products" component={Products} />
-        <Route path="/purchase" component={Purchase} />
-        <Route path="/sales" component={Sales} />
-        <Route path="/inventory" component={Inventory} />
-        <Route path="/customers" component={Customers} />
-        <Route>
-          <Redirect to="/" />
-        </Route>
-      </Switch>
-    </AppLayout>
+    <>
+      <Toaster position="top-right" richColors />
+      <AppLayout username={username} onLogout={handleLogout}>
+        <Switch>
+          <Route path="/" component={Dashboard} />
+          <Route path="/dashboard" component={Dashboard} />
+          <Route path="/products" component={Products} />
+          <Route path="/purchase" component={Purchase} />
+          <Route path="/sales" component={Sales} />
+          <Route path="/inventory" component={Inventory} />
+          <Route path="/customers" component={Customers} />
+          <Route>
+            <Redirect to="/" />
+          </Route>
+        </Switch>
+      </AppLayout>
+    </>
   );
 }

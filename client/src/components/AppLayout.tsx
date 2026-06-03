@@ -11,6 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { getToken } from "@/lib/trpc";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -48,9 +49,10 @@ export default function AppLayout({ children, username, onLogout }: AppLayoutPro
     }
     setPwdLoading(true);
     try {
+      const token = getToken();
       const res = await fetch("/api/trpc/auth.changePassword", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ json: { username, oldPassword: oldPwd, newPassword: newPwd } }),
       });
       const data = await res.json();

@@ -433,6 +433,7 @@ async function deletePurchaseOrderDb(orderId: number) {
   }
   for (const item of items) {
     await db.update(inventory).set({ quantity: sql`quantity - ${item.quantity}` }).where(and(eq(inventory.productId, item.productId), eq(inventory.batchNo, item.batchNo), eq(inventory.spec, item.spec)));
+    await db.delete(inventory).where(and(eq(inventory.productId, item.productId), eq(inventory.batchNo, item.batchNo), eq(inventory.spec, item.spec), sql`quantity <= 0`));
   }
   await db.delete(purchaseOrderItems).where(eq(purchaseOrderItems.orderId, orderId));
   await db.delete(purchaseOrders).where(eq(purchaseOrders.id, orderId));
@@ -450,6 +451,7 @@ async function updatePurchaseOrderDb(orderId: number, items: Array<{ productId: 
   }
   for (const item of oldItems) {
     await db.update(inventory).set({ quantity: sql`quantity - ${item.quantity}` }).where(and(eq(inventory.productId, item.productId), eq(inventory.batchNo, item.batchNo), eq(inventory.spec, item.spec)));
+    await db.delete(inventory).where(and(eq(inventory.productId, item.productId), eq(inventory.batchNo, item.batchNo), eq(inventory.spec, item.spec), sql`quantity <= 0`));
   }
   await db.delete(purchaseOrderItems).where(eq(purchaseOrderItems.orderId, orderId));
   let totalAmount = 0;
@@ -501,6 +503,7 @@ async function createSalesOrderDb(customerId: number, customerName: string, item
     totalTax += taxAmount;
     await db.insert(salesOrderItems).values({ orderId, productId: item.productId, productName: item.productName, spec: item.spec, unit: item.unit, supplier: item.supplier, purchasePrice: item.purchasePrice, batchNo: item.batchNo, quantity: item.quantity, salePrice: item.salePrice, taxRate: item.taxRate, subtotal: subtotal.toFixed(2), taxAmount: taxAmount.toFixed(2), cost: cost.toFixed(2), profit: profit.toFixed(2) } as any);
     await db.update(inventory).set({ quantity: sql`quantity - ${item.quantity}` }).where(and(eq(inventory.productId, item.productId), eq(inventory.batchNo, item.batchNo), eq(inventory.spec, item.spec)));
+    await db.delete(inventory).where(and(eq(inventory.productId, item.productId), eq(inventory.batchNo, item.batchNo), eq(inventory.spec, item.spec), sql`quantity <= 0`));
   }
   const totalProfit = totalAmount - totalCost - totalTax;
   const profitRate = totalAmount > 0 ? (totalProfit / totalAmount * 100) : 0;
@@ -576,6 +579,7 @@ async function updateSalesOrderDb(orderId: number, customerId: number, customerN
     totalTax += taxAmount;
     await db.insert(salesOrderItems).values({ orderId, productId: item.productId, productName: item.productName, spec: item.spec, unit: item.unit, supplier: item.supplier, purchasePrice: item.purchasePrice, batchNo: item.batchNo, quantity: item.quantity, salePrice: item.salePrice, taxRate: item.taxRate, subtotal: subtotal.toFixed(2), taxAmount: taxAmount.toFixed(2), cost: cost.toFixed(2), profit: profit.toFixed(2) } as any);
     await db.update(inventory).set({ quantity: sql`quantity - ${item.quantity}` }).where(and(eq(inventory.productId, item.productId), eq(inventory.batchNo, item.batchNo), eq(inventory.spec, item.spec)));
+    await db.delete(inventory).where(and(eq(inventory.productId, item.productId), eq(inventory.batchNo, item.batchNo), eq(inventory.spec, item.spec), sql`quantity <= 0`));
   }
   const totalProfit = totalAmount - totalCost - totalTax;
   const profitRate = totalAmount > 0 ? (totalProfit / totalAmount * 100) : 0;
